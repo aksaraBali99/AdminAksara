@@ -84,12 +84,20 @@ class ReportController extends Controller
         $totalExpense = Expense::whereBetween('expense_date', [$startDate, $endDate])
             ->sum('amount');
 
+        // withSum() computes expenses_sum_amount as a per-row correlated
+        // subquery, not a true GROUP BY aggregate, so filtering/ordering by
+        // it has to happen in PHP rather than via having()/orderByDesc():
+        // MySQL tolerates HAVING on a plain SELECT-list alias as a
+        // non-standard extension, but SQLite (and Postgres) reject it with
+        // "HAVING clause on a non-aggregate query". Mirrors the same
+        // filter+sort-in-PHP pattern already used for $incomeByClient above.
         $expenseByCategory = ExpenseCategory::withSum(['expenses' => function ($query) use ($startDate, $endDate) {
                 $query->whereBetween('expense_date', [$startDate, $endDate]);
             }], 'amount')
-            ->having('expenses_sum_amount', '>', 0)
-            ->orderByDesc('expenses_sum_amount')
-            ->get();
+            ->get()
+            ->filter(fn ($category) => $category->expenses_sum_amount > 0)
+            ->sortByDesc('expenses_sum_amount')
+            ->values();
 
         // Monthly breakdown with currency conversion
         $monthlyData = [];
@@ -177,11 +185,15 @@ class ReportController extends Controller
 
         $totalExpense = Expense::whereBetween('expense_date', [$startDate, $endDate])->sum('amount');
 
+        // See the equivalent query in index() for why filtering happens in
+        // PHP rather than via having() - MySQL-only SQL, not portable.
         $expenseByCategory = ExpenseCategory::withSum(['expenses' => function ($query) use ($startDate, $endDate) {
                 $query->whereBetween('expense_date', [$startDate, $endDate]);
             }], 'amount')
-            ->having('expenses_sum_amount', '>', 0)
-            ->get();
+            ->get()
+            ->filter(fn ($category) => $category->expenses_sum_amount > 0)
+            ->sortByDesc('expenses_sum_amount')
+            ->values();
 
         $netProfit = $totalIncome - $totalExpense;
         $periodLabel = $month 
