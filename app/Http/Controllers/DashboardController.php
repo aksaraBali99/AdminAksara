@@ -20,20 +20,26 @@ class DashboardController extends Controller
      */
     private function convertToIDR($amount, $currency): float
     {
-        if ($currency === 'IDR') return $amount;
-        
-        $key = 'exchange_rate_' . strtolower($currency);
-        $rate = \App\Models\Setting::getValue($key, 1);
-        
-        return $amount * (float) $rate;
+        return Invoice::convertToIdr((float) $amount, $currency ?? 'IDR');
     }
 
     public function index()
     {
-        // Invoice Statistics with currency conversion
-        $unpaidInvoices = Invoice::whereIn('status', ['draft', 'sent', 'overdue'])->get();
-        $paidInvoices = Invoice::where('status', 'paid')->get();
-        
+        $currentYear = Carbon::now()->year;
+        $currentMonth = Carbon::now()->month;
+
+        // Invoice Statistics with currency conversion, scoped to the current year
+        // so this matches the "Total Income {{ $currentYear }}" / "Net Profit {{ $currentYear }}"
+        // cards next to them instead of accumulating across every year of data.
+        // Paid invoices are scoped by paid_date (when the cash came in, same basis
+        // as Total Income); unpaid ones have no paid_date, so invoice_date is used.
+        $unpaidInvoices = Invoice::whereIn('status', ['draft', 'sent', 'overdue'])
+            ->whereYear('invoice_date', $currentYear)
+            ->get();
+        $paidInvoices = Invoice::where('status', 'paid')
+            ->whereYear('paid_date', $currentYear)
+            ->get();
+
         $totalUnpaidInvoices = $unpaidInvoices->sum(function($invoice) {
             return $this->convertToIDR($invoice->amount, $invoice->currency ?? 'IDR');
         });
@@ -44,10 +50,6 @@ class DashboardController extends Controller
         $unpaidCount = $unpaidInvoices->count();
         $paidCount = $paidInvoices->count();
 
-        // Finance Statistics with currency conversion
-        $currentYear = Carbon::now()->year;
-        $currentMonth = Carbon::now()->month;
-        
         $incomes = Income::whereYear('income_date', $currentYear)->get();
         $totalIncome = $incomes->sum(function($income) {
             // Since we're now enforcing IDR for new incomes, this direct sum is more accurate

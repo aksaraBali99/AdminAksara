@@ -11,6 +11,45 @@ use Carbon\Carbon;
 
 class InvoiceController extends Controller
 {
+    /**
+     * A typed-in paid amount that's wildly out of proportion to the invoice
+     * total is almost always a data-entry mistake (e.g. an extra "00"),
+     * not a legitimate partial payment or FX swing. Real variance from
+     * partial payments, discounts, or exchange rate movement stays well
+     * inside this 0.3x-3x band.
+     */
+    private const PAID_AMOUNT_MIN_RATIO = 0.3;
+    private const PAID_AMOUNT_MAX_RATIO = 3.0;
+
+    /**
+     * Sanity-check a paid amount (in IDR) against the invoice's own amount,
+     * converted to IDR at the current exchange rate.
+     */
+    private function isPaidAmountSane(float $paidAmountIdr, float $invoiceAmount, string $currency): bool
+    {
+        $expectedIdr = Invoice::convertToIdr($invoiceAmount, $currency);
+
+        if ($expectedIdr <= 0) {
+            return true;
+        }
+
+        $ratio = $paidAmountIdr / $expectedIdr;
+
+        return $ratio >= self::PAID_AMOUNT_MIN_RATIO && $ratio <= self::PAID_AMOUNT_MAX_RATIO;
+    }
+
+    private function paidAmountSanityMessage(float $paidAmountIdr, float $invoiceAmount, string $currency): string
+    {
+        $expectedIdr = Invoice::convertToIdr($invoiceAmount, $currency);
+
+        return sprintf(
+            'The paid amount (Rp %s) looks too far off from the invoice total (%s %s, ≈ Rp %s at the current exchange rate). Please double-check for typos such as extra digits.',
+            number_format($paidAmountIdr, 0, ',', '.'),
+            $currency,
+            number_format($invoiceAmount, 2, '.', ','),
+            number_format($expectedIdr, 0, ',', '.')
+        );
+    }
 
     public function index(Request $request)
     {
@@ -87,7 +126,24 @@ class InvoiceController extends Controller
             'items.*.total' => 'required|numeric|min:0',
             'items.*.sort_order' => 'required|integer',
             // Fields for paid status
-            'paid_amount_idr' => 'required_if:status,paid|nullable|numeric|min:0',
+            'paid_amount_idr' => [
+                'required_if:status,paid',
+                'nullable',
+                'numeric',
+                'min:0',
+                function (string $attribute, $value, \Closure $fail) use ($request) {
+                    if ($request->input('status') !== 'paid' || $value === null) {
+                        return;
+                    }
+
+                    $amount = (float) collect($request->input('items', []))->sum('total');
+                    $currency = (string) $request->input('currency');
+
+                    if (! $this->isPaidAmountSane((float) $value, $amount, $currency)) {
+                        $fail($this->paidAmountSanityMessage((float) $value, $amount, $currency));
+                    }
+                },
+            ],
             'paid_date' => 'required_if:status,paid|nullable|date',
         ]);
 
@@ -158,7 +214,24 @@ class InvoiceController extends Controller
             'items.*.total' => 'required|numeric|min:0',
             'items.*.sort_order' => 'required|integer',
             // Fields for paid status
-            'paid_amount_idr' => 'required_if:status,paid|nullable|numeric|min:0',
+            'paid_amount_idr' => [
+                'required_if:status,paid',
+                'nullable',
+                'numeric',
+                'min:0',
+                function (string $attribute, $value, \Closure $fail) use ($request) {
+                    if ($request->input('status') !== 'paid' || $value === null) {
+                        return;
+                    }
+
+                    $amount = (float) collect($request->input('items', []))->sum('total');
+                    $currency = (string) $request->input('currency');
+
+                    if (! $this->isPaidAmountSane((float) $value, $amount, $currency)) {
+                        $fail($this->paidAmountSanityMessage((float) $value, $amount, $currency));
+                    }
+                },
+            ],
             'paid_date' => 'required_if:status,paid|nullable|date',
         ]);
 
@@ -211,7 +284,16 @@ class InvoiceController extends Controller
         ];
 
         if ($request->status === 'paid') {
-            $rules['paid_amount_idr'] = 'required|numeric|min:0';
+            $rules['paid_amount_idr'] = [
+                'required',
+                'numeric',
+                'min:0',
+                function (string $attribute, $value, \Closure $fail) use ($invoice) {
+                    if (! $this->isPaidAmountSane((float) $value, (float) $invoice->amount, $invoice->currency)) {
+                        $fail($this->paidAmountSanityMessage((float) $value, (float) $invoice->amount, $invoice->currency));
+                    }
+                },
+            ];
             $rules['paid_date'] = 'required|date';
         }
 
