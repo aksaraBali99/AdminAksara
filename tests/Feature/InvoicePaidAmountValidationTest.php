@@ -129,5 +129,13 @@ class InvoicePaidAmountValidationTest extends TestCase
         $page = $this->actingAs($user)->get(route('invoices.show', $invoice));
         $page->assertSee('too far off from the invoice total');
         $page->assertDontSee('id="paid_form_fields" class="hidden', false);
+
+        // A top-of-page summary banner should also call out which field
+        // failed, since the redirect scrolls the page back to the top and
+        // a field-level error further down is easy to miss otherwise.
+        $page->assertSeeInOrder([
+            "We couldn't save your changes",
+            'Paid Amount IDR',
+        ]);
     }
 }
