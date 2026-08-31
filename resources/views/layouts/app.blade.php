@@ -396,6 +396,36 @@
                         </div>
                     @endif
 
+                    {{-- Validation errors (e.g. a failed save) don't flash to session('error') -
+                         they land in $errors instead, and previously had no top-of-page summary,
+                         so a failing field below the fold was easy to miss after the redirect
+                         scrolled the page back to the top. --}}
+                    @if ($errors->any())
+                        <div class="mb-6 flex w-full rounded-lg border-l-4 border-red-500 bg-red-50 px-4 py-3 shadow-md">
+                            <div class="mr-3 flex h-6 w-6 items-center justify-center rounded-lg bg-red-500">
+                                <svg class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <h5 class="text-sm font-medium text-red-800">We couldn't save your changes</h5>
+                                <p class="text-xs text-red-700">
+                                    @php
+                                        $errorFieldLabels = collect($errors->keys())
+                                            ->map(function ($key) {
+                                                $label = ucwords(str_replace('_', ' ', last(explode('.', $key))));
+                                                return str_ireplace('Idr', 'IDR', $label);
+                                            })
+                                            ->unique()
+                                            ->values();
+                                    @endphp
+                                    Please review the following field(s) and try again:
+                                    <strong>{{ $errorFieldLabels->join(', ', ' and ') }}</strong>.
+                                </p>
+                            </div>
+                        </div>
+                    @endif
+
                     {{ $slot }}
                 </div>
             </main>

@@ -200,14 +200,14 @@
                         <div class="flex-grow max-w-xs">
                             <label for="status_select" class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Update Status:</label>
                             <select name="status" id="status_select" onchange="togglePaidForm(this.value)" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-teal-500 focus:ring-teal-500 text-sm py-2">
-                                <option value="draft" {{ $invoice->status == 'draft' ? 'selected' : '' }}>Draft</option>
-                                <option value="sent" {{ $invoice->status == 'sent' ? 'selected' : '' }}>Sent</option>
-                                <option value="paid" {{ $invoice->status == 'paid' ? 'selected' : '' }}>Paid</option>
-                                <option value="overdue" {{ $invoice->status == 'overdue' ? 'selected' : '' }}>Overdue</option>
+                                <option value="draft" {{ old('status', $invoice->status) == 'draft' ? 'selected' : '' }}>Draft</option>
+                                <option value="sent" {{ old('status', $invoice->status) == 'sent' ? 'selected' : '' }}>Sent</option>
+                                <option value="paid" {{ old('status', $invoice->status) == 'paid' ? 'selected' : '' }}>Paid</option>
+                                <option value="overdue" {{ old('status', $invoice->status) == 'overdue' ? 'selected' : '' }}>Overdue</option>
                             </select>
                         </div>
 
-                        <div id="paid_form_fields" class="{{ $invoice->status == 'paid' ? 'flex' : 'hidden' }} flex-wrap gap-3">
+                        <div id="paid_form_fields" class="{{ old('status', $invoice->status) == 'paid' ? 'flex' : 'hidden' }} flex-wrap gap-3">
                             <div class="w-48">
                                 <label for="paid_amount_idr" class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Real Nominal (IDR) *</label>
                                 <div class="relative rounded-lg shadow-sm">
@@ -254,6 +254,11 @@
                 document.getElementById('paid_date').required = false;
             }
         }
+
+        // Keep the "required" state in sync with the select's actual value on
+        // load too, not just on change - e.g. after a failed status-update
+        // submission where the fields re-render visible with old('status').
+        togglePaidForm(document.getElementById('status_select').value);
     </script>
     @endpush
 </x-app-layout>

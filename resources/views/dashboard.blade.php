@@ -103,7 +103,7 @@
                     <h4 class="text-2xl font-bold text-gray-800">
                         Rp {{ number_format($totalUnpaidInvoices, 0, ',', '.') }}
                     </h4>
-                    <span class="text-sm font-medium text-gray-500">Unpaid Invoices</span>
+                    <span class="text-sm font-medium text-gray-500">Unpaid Invoices {{ $currentYear }}</span>
                 </div>
                 <span class="mt-2 flex items-center gap-1 text-xs font-medium text-amber-600">
                     {{ $unpaidCount }} pending
@@ -121,7 +121,7 @@
                     <h4 class="text-2xl font-bold text-gray-800">
                         Rp {{ number_format($totalPaidInvoices, 0, ',', '.') }}
                     </h4>
-                    <span class="text-sm font-medium text-gray-500">Paid Invoices</span>
+                    <span class="text-sm font-medium text-gray-500">Paid Invoices {{ $currentYear }}</span>
                 </div>
                 <span class="mt-2 flex items-center gap-1 text-xs font-medium text-green-600">
                     {{ $paidCount }} completed

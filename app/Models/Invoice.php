@@ -55,6 +55,21 @@ class Invoice extends Model
     ];
 
     /**
+     * Convert an amount in the given currency to IDR using the live rate
+     * configured in the settings table.
+     */
+    public static function convertToIdr(float $amount, string $currency): float
+    {
+        if ($currency === 'IDR') {
+            return $amount;
+        }
+
+        $rate = Setting::getValue('exchange_rate_' . strtolower($currency), 1);
+
+        return $amount * (float) $rate;
+    }
+
+    /**
      * Get the client that owns the invoice.
      */
     public function client(): BelongsTo
