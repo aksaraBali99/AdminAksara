@@ -44,7 +44,12 @@ class InvoicePaidAmountValidationTest extends TestCase
 
     public function test_paid_amount_wildly_above_invoice_total_is_rejected(): void
     {
-        $user = User::factory()->create();
+        // 'finance' is the users.role column's DB default, but that default
+        // only takes effect at the database level - the in-memory model
+        // returned by factory()->create() doesn't know it, so it must be
+        // set explicitly here or the manage-invoices Gate check (which
+        // reads $user->role) sees null and denies the request with 403.
+        $user = User::factory()->create(['role' => 'finance']);
 
         $payload = $this->baseInvoicePayload([
             // Invoice total is 1,000,000 - this is a 100x typo.
@@ -59,7 +64,7 @@ class InvoicePaidAmountValidationTest extends TestCase
 
     public function test_paid_amount_matching_invoice_total_is_accepted(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => 'finance']);
 
         $payload = $this->baseInvoicePayload([
             'paid_amount_idr' => 1000000,
@@ -89,7 +94,7 @@ class InvoicePaidAmountValidationTest extends TestCase
     {
         Setting::create(['key' => 'exchange_rate_aud', 'value' => '10500', 'group' => 'finance']);
 
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => 'finance']);
         $client = Client::create([
             'company_name' => 'Acme Corp',
             'contact_name' => 'Jane Doe',
