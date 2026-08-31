@@ -53,13 +53,21 @@ class Client extends Model
     }
 
     /**
-     * Update total revenue from paid invoices.
+     * Update total revenue from paid invoices, converted to IDR.
+     *
+     * total_revenue is displayed as a plain "Rp" figure (see
+     * employees/show.blade.php), so it must be IDR throughout - summing
+     * `amount` directly mixes currencies (e.g. IDR 15,000,000 + USD 20 +
+     * AUD 5,900 = a meaningless 15,005,920) whenever a client has invoices
+     * in more than one currency.
      */
     public function updateTotalRevenue(): void
     {
         $this->total_revenue = $this->invoices()
             ->where('status', 'paid')
-            ->sum('amount');
+            ->get()
+            ->sum(fn (Invoice $invoice) => $invoice->paid_amount_idr
+                ?? Invoice::convertToIdr((float) $invoice->amount, $invoice->currency));
         $this->save();
     }
 }
